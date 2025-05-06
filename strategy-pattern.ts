@@ -48,8 +48,16 @@ const mockConfigs: Config<ConfigUnion>[] = [{
 class ConfigService {
   constructor() {}
 
-  getConfigs<T extends ConfigUnion>(type: string): Config<T> | undefined {
-    return mockConfigs.find(config => config.type === type) as Config<T>;
+  isSmsConfig(config: Config<ConfigUnion>): config is Config<SmsConfig> {
+    return config.type === 'sms' && 'sms' in config.props;
+  }
+
+  getConfigs(type: string): Config<ConfigUnion> | undefined {
+    return mockConfigs.find(config => config.type === type);
+  }
+
+  isEmailConfig(config: Config<ConfigUnion>): config is Config<EmailConfig> {
+    return config.type === 'email';
   }
 }
 
@@ -73,11 +81,14 @@ class EmailAlertWithStrategy implements AlertStrategy {
   constructor(private configService: ConfigService, private emailService: EmailService) {}
 
   notify(message: string) {
-    const configs = this.configService.getConfigs<EmailConfig>('email');
-    
+    const configs = this.configService.getConfigs('email');
     if (!configs) throw new Error('Email config not found');
-
-    this.emailService.send(configs, message);
+    
+    if (this.configService.isEmailConfig(configs)) {
+      this.emailService.send(configs, message);
+    } else {
+      throw new Error('Invalid Email configuration');
+    }
   }
 }
 
@@ -85,11 +96,14 @@ class SMSAlertWithStrategy implements AlertStrategy {
   constructor(private configService: ConfigService, private smsService: SmsService) {}
 
   notify(message: string) {
-    const configs = this.configService.getConfigs<SmsConfig>('sms');
-    
+    const configs = this.configService.getConfigs('sms');
     if (!configs) throw new Error('SMS config not found');
     
-    this.smsService.send(configs, message);
+    if (this.configService.isSmsConfig(configs)) {
+      this.smsService.send(configs, message);
+    } else {
+      throw new Error('Invalid SMS configuration');
+    }
   }
 }
 
